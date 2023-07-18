@@ -70,6 +70,8 @@ class MinimaxModel:
             S = torch.clamp(S, min=0., max=1.)
             S = (S + S.T) / 2
 
+            ARE YOU UPDATING S??
+
             # Compute loss on training/validation/test for debug
             with torch.no_grad():
                 if S_true is not None:
@@ -148,7 +150,6 @@ class MinimaxGCNNModel(MinimaxModel):
         self.opt_S = torch.optim.SGD([self.S], lr=lr)
 
     def normalize_S(self):
-        
         return
 
 

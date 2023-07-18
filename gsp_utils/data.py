@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.linalg as la
 from networkx.generators.random_graphs import erdos_renyi_graph
 from networkx import is_connected, to_numpy_array, connected_watts_strogatz_graph, karate_club_graph
 
@@ -30,6 +31,24 @@ def obtain_filter_coefs(S, H, K, return_h_bar=False, use_H_vals=False):
         return h, h_bar
     else:
         return h
+
+def normalize_gso(S, norm_type):
+    """
+    Perform different tpyes of normalizations of the GSO.
+    """
+    if norm_type == 'eigen':
+        return S/la.norm(S, 2)
+    
+    D_inv = np.diag(1/S.sum(1))
+
+    if norm_type == 'right':
+        return S @ D_inv
+    elif norm_type == 'left':
+        return D_inv @ S
+    elif norm_type == 'both':
+        D_inv_sqr = np.sqrt(D_inv)
+        return D_inv_sqr @ S @ D_inv_sqr
+
 
 def generate_graph(N, g_params, seed=None):
     """

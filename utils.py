@@ -16,14 +16,21 @@ def get_data_dgl(dataset_name, verb=False, dev='cpu'):
     # get labels
     label = g.ndata['label'].to(dev)
     n_class = dataset.num_classes
+
     # get data split
     masks = {}
-    masks['train'] = g.ndata['train_mask'].to(dev)
-    masks['val'] = g.ndata['val_mask'].to(dev)
-    masks['test'] = g.ndata['test_mask'].to(dev)
+    mask_labels = ['train', 'val', 'test']
+    for lab in mask_labels:
+        mask = g.ndata[lab + '_mask'].to(dev)
+        # Select first data splid if more than one is available
+        masks[lab] = mask[:,0] if len(mask.shape) > 1 else mask
 
     if verb:
         N = S.shape[0]
+
+        node_hom = dgl.node_homophily(g, g.ndata['label'])
+        edge_hom = dgl.edge_homophily(g, g.ndata['label'])
+
         print('Dataset:', dataset_name)
         print(f'Number of nodes: {S.shape[0]}')
         print(f'Number of features: {feat.shape[1]}')
@@ -33,7 +40,8 @@ def get_data_dgl(dataset_name, verb=False, dev='cpu'):
         print(f'Max value of A: {np.max(S)}')
         print(f'Proportion of validation data: {torch.sum(masks["val"] == True).item()/N:.2f}')
         print(f'Proportion of test data: {torch.sum(masks["test"] == True).item()/N:.2f}')
-
+        print(f'Node homophily: {node_hom:.2f}')
+        print(f'Edge homophily: {edge_hom:.2f}')
 
     return S, feat, label, n_class, masks
 

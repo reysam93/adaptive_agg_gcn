@@ -60,7 +60,7 @@ class NodeClassModel:
         
 
 class GF_NodeClassModel(NodeClassModel):
-    def __init__(self, arch, S, K, masks, loss= torch.nn.CrossEntropyLoss(reduction='sum'),
+    def __init__(self, arch, S, K, masks, loss=torch.nn.CrossEntropyLoss(reduction='sum'),
                  device='cpu'):
         """
         NOTE: this matrix S is a dgl object, not a tensor or a np matrix.
@@ -69,7 +69,7 @@ class GF_NodeClassModel(NodeClassModel):
         
         # Save powers of S
         N = S.shape[0]
-        S_pows = torch.Tensor(torch.empty(K-1, N, N))
+        S_pows = torch.Tensor(torch.empty(K-1, N, N)).to(device)
         S_pows[0,:,:] = S
         for k in range(1,K-1):
             S_pows[k,:,:] = S @ S_pows[k-1,:,:]

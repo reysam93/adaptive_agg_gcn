@@ -93,7 +93,7 @@ class GFGCNLayer(nn.Module):
         
 
 class GFGCN_noh_Layer(nn.Module):
-    def __init__(self, in_dim, out_dim, K, bias):
+    def __init__(self, in_dim, out_dim, K, bias, init_h0=1):
         super().__init__()
         self.K = K
         self.in_dim = in_dim
@@ -102,6 +102,7 @@ class GFGCN_noh_Layer(nn.Module):
         
         self.W = nn.Parameter(torch.empty((K, self.in_dim, self.out_dim)))
         torch.nn.init.kaiming_uniform_(self.W.data)
+        self.W.data[0] *= init_h0
 
         if bias:
             self.b = nn.Parameter(torch.empty(self.out_dim))
@@ -124,7 +125,7 @@ class GFGCN(nn.Module):
     def __init__(self, in_dim, hid_dim, out_dim, n_layers, K, bias=True,
                  act=nn.ReLU(), last_act=nn.Identity(), dropout=0,
                  diff_layer=GFGCNLayer, init_h0=1):
-        super().__init__()        
+        super().__init__()
         self.act = act
         self.last_act =  last_act
         self.dropout = nn.Dropout(p=dropout)
@@ -165,11 +166,9 @@ class GFGCN_SpowsLayer(GFGCNLayer):
             d_inv_sqr = torch.sqrt(torch.abs(1/H.sum(1)))
             # Replace diagonal matrix by vectors to scale rows/columns
             H = d_inv_sqr * (H.T * d_inv_sqr).T
-            # H = D_inv_sqr @ H @ D_inv_sqr
-
 
         if self.b is not None:
-            return H @ (X @ self.W) + self.b[None,:]      # NxNxFo + NxFixFo
+            return H @ (X @ self.W) + self.b[None,:]
         else:
             return H @ (X @ self.W)
 

@@ -12,6 +12,7 @@ ZACHARY = 5
 
 MAX_RETRIES = 100
 
+
 def obtain_filter_coefs(S, H, K, return_h_bar=False, use_H_vals=False):
     """
     Obtain the coefficients h used to generate a graph filter H, using the GSO

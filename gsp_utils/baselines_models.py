@@ -35,7 +35,7 @@ class NodeClassModel:
         return losses_train, losses_val, losses_test, accs_train,accs_val, accs_test
 
     def train(self, X, labels, n_epochs, lr, wd, eval_freq=20, optim=torch.optim.Adam, verb=False):
-        opt = optim(self.arch.parameters(), lr=lr, weight_decay=wd, patience=10)
+        opt = optim(self.arch.parameters(), lr=lr, weight_decay=wd)
 
         losses_train, losses_val, losses_test = [np.zeros(n_epochs) for _ in range(3)]
         accs_train, accs_val, accs_test = [np.zeros(n_epochs) for _ in range(3)]

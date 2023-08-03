@@ -4,7 +4,7 @@ import numpy as np
 
 
 # DATA RELATED
-def get_data_dgl(dataset_name, verb=False, dev='cpu'):
+def get_data_dgl(dataset_name, verb=False, dev='cpu', idx=0):
     dataset = getattr(dgl.data, dataset_name)(verbose=False)
 
     g = dataset[0]
@@ -23,7 +23,7 @@ def get_data_dgl(dataset_name, verb=False, dev='cpu'):
     for lab in mask_labels:
         mask = g.ndata[lab + '_mask'].to(dev)
         # Select first data splid if more than one is available
-        masks[lab] = mask[:,0] if len(mask.shape) > 1 else mask
+        masks[lab] = mask[:,idx] if len(mask.shape) > 1 else mask
 
     if verb:
         N = S.shape[0]

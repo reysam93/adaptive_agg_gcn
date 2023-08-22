@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from copy import deepcopy
 from src.arch import GFGCN_Spows
 
 class NodeClassModel:
@@ -34,7 +35,12 @@ class NodeClassModel:
 
         return losses_train, losses_val, losses_test, accs_train,accs_val, accs_test
 
-    def train(self, X, labels, n_epochs, lr, wd, eval_freq=20, optim=torch.optim.Adam, verb=False):
+    def train(self, X, labels, n_epochs, lr, wd, eval_freq=20, optim=torch.optim.Adam,
+              patience=100, verb=False):
+        best_val_loss = 1000
+        # best_val_acc = 0
+        cont_stop = 0
+        best_weights = deepcopy(self.arch.state_dict())
         opt = optim(self.arch.parameters(), lr=lr, weight_decay=wd)
 
         losses_train, losses_val, losses_test = [np.zeros(n_epochs) for _ in range(3)]
@@ -54,8 +60,20 @@ class NodeClassModel:
             if (i == 0 or (i+1) % eval_freq == 0) and verb:
                 print(f"Epoch {i+1}/{n_epochs} - Loss Train: {losses_train[i]:.3f} - Acc Train: {accs_train[i]:.3f} - Acc Val: {accs_val[i]:.3f} - Acc Test: {accs_test[i]:.3f}", flush=True)
             
-            # TODO: EARLY STOPPING
+            if losses_val[i] < best_val_loss:
+                best_val_loss = losses_val[i]
+                best_weights = deepcopy(self.arch.state_dict())
+                cont_stop = 0
+            else:
+                cont_stop += 1
+            
+            if cont_stop >= patience:
+                if verb:
+                    print(f'\tConverged at iteration: {i}')
 
+                break
+
+        self.arch.load_state_dict(best_weights)
         losses = {'train': losses_train, 'val': losses_val, 'test': losses_test}
         accs = {'train': accs_train, 'val': accs_val, 'test': accs_test}
         return losses, accs
@@ -112,7 +130,11 @@ class GF_NodeClassModel(NodeClassModel):
             optim.step()
 
     def train(self, X, labels, n_epochs, lr, wd, eval_freq=20, optim=torch.optim.Adam, 
-              epochs_h=1, epochs_W=1, clamp=False, verb=False):
+              epochs_h=1, epochs_W=1, clamp=False, patience=100, verb=False):
+        best_val_loss = 1000
+        # best_val_acc = 0
+        cont_stop = 0
+        best_weights = deepcopy(self.arch.state_dict())
         opt_W, opt_h = self.init_optimizers(optim, lr, wd)
 
         losses_train, losses_val, losses_test = [np.zeros(n_epochs) for _ in range(3)]
@@ -135,6 +157,20 @@ class GF_NodeClassModel(NodeClassModel):
             if (i == 0 or (i+1) % eval_freq == 0) and verb:
                 print(f"Epoch {i+1}/{n_epochs} - Loss Train: {losses_train[i]:.3f} - Acc Train: {accs_train[i]:.3f} - Acc Val: {accs_val[i]:.3f} - Acc Test: {accs_test[i]:.3f}", flush=True)
 
+            if losses_val[i] < best_val_loss:
+                best_val_loss = losses_val[i]
+                best_weights = deepcopy(self.arch.state_dict())
+                cont_stop = 0
+            else:
+                cont_stop += 1
+            
+            if cont_stop >= patience:
+                if verb:
+                    print(f'\tConverged at iteration: {i}')
+
+                break
+
+        self.arch.load_state_dict(best_weights)
         losses = {'train': losses_train, 'val': losses_val, 'test': losses_test}
         accs = {'train': accs_train, 'val': accs_val, 'test': accs_test}
         return losses, accs

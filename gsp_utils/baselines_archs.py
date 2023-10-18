@@ -2,6 +2,24 @@ from dgl.nn import GATConv, GraphConv
 import torch.nn as nn
 
 
+class MLP(nn.Module):
+    def __init__(self, in_dim, hidden_dim, out_dim, dropout=0., bias=True,
+                 act=nn.ReLU(), last_act=nn.Identity(),):
+        super(MLP, self).__init__()
+        self.layer1 = nn.Linear(in_dim, hidden_dim, bias=bias)
+        self.layer2 = nn.Linear(hidden_dim, out_dim, bias=bias)
+        self.nonlin =act
+        self.last_nonlin = last_act
+        self.dropout = nn.Dropout(p=dropout)
+
+    def forward(self, h):
+        h = self.layer1(h)
+        h = self.nonlin(h)
+        h = self.dropout(h)
+        h = self.layer2(h)
+        return self.last_nonlin(h)
+
+
 class GAT(nn.Module):
     """
     Graph Attention Network Class

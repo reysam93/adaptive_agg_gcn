@@ -20,7 +20,10 @@ class NodeClassModel:
 
         self.arch.eval()
         with torch.no_grad():
-            labels_hat = self.arch(self.S, X)
+            if type(self.arch).__name__ == 'MLP':
+                labels_hat = self.arch(X)
+            else:
+                labels_hat = self.arch(self.S, X)
             loss = self.loss_fn(labels_hat[self.train_mask], labels[self.train_mask])
             loss_ev = self.loss_fn(labels_hat[self.val_mask], labels[self.val_mask])
             loss_test = self.loss_fn(labels_hat[self.test_mask], labels[self.test_mask])
@@ -45,11 +48,15 @@ class NodeClassModel:
 
         losses_train, losses_val, losses_test = [np.zeros(n_epochs) for _ in range(3)]
         accs_train, accs_val, accs_test = [np.zeros(n_epochs) for _ in range(3)]
+
         for i in range(n_epochs):
             self.arch.train()
             opt.zero_grad()
 
-            labels_hat = self.arch(self.S, X)
+            if type(self.arch).__name__ == 'MLP':
+                labels_hat = self.arch(X)
+            else:
+                labels_hat = self.arch(self.S, X)
             loss = self.loss_fn(labels_hat[self.train_mask], labels[self.train_mask])
             loss.backward()
             opt.step()
@@ -81,7 +88,10 @@ class NodeClassModel:
     def test(self, X, S, labels, mask):
         self.arch.eval()
         with torch.no_grad():
-            logits = self.arch(S, X)
+            if type(self.arch).__name__ == 'MLP':
+                logits = self.arch(X)
+            else:
+                logits = self.arch(S, X)
             logits = logits[mask]
             labels_mask = labels[mask]
             _, indices = torch.max(logits, dim=1)

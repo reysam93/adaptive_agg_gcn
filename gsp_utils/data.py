@@ -40,8 +40,9 @@ def normalize_gso(S, norm_type):
     if norm_type == 'eigen':
         return S/la.norm(S, 2)
     
-    D_inv = np.diag(1/S.sum(1))
-
+    deg_vec = S.sum(1)
+    D_inv = np.diag(np.where(np.isclose(deg_vec, 0), 0, 1/deg_vec))
+    
     if norm_type == 'right':
         return S @ D_inv
     elif norm_type == 'left':

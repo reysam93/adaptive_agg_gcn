@@ -163,7 +163,8 @@ class GFGCN_SpowsLayer(GFGCNLayer):
             H += self.h[k+1] * S_pows[k,:,:]
 
         if norm:
-            d_inv_sqr = torch.sqrt(torch.abs(1/H.sum(1)))
+            deg = H.sum(1)
+            d_inv_sqr = torch.sqrt(torch.abs(torch.where(deg == 0, 0, 1/deg)))
             # Replace diagonal matrix by vectors to scale rows/columns
             H = d_inv_sqr * (H.T * d_inv_sqr).T
 

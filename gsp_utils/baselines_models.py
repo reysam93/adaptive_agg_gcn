@@ -6,9 +6,6 @@ from src.arch import GFGCN_Spows
 class NodeClassModel:
     def __init__(self, arch, S, masks, loss=torch.nn.CrossEntropyLoss(reduction='sum'),
                  device='cpu'):
-        """
-        NOTE: this matrix S is a dgl object, not a tensor or a np matrix.
-        """
         self.arch = arch.to(device)
         self.train_mask = masks['train']
         self.val_mask = masks['val']
@@ -17,7 +14,6 @@ class NodeClassModel:
         self.S = S
 
     def get_eval_metrics(self, X, labels):
-
         self.arch.eval()
         with torch.no_grad():
             if type(self.arch).__name__ == 'MLP':
@@ -107,6 +103,9 @@ class GF_NodeClassModel(NodeClassModel):
         """
         super().__init__(arch, S, masks, loss, device)
         
+        if type(self.arch).__name__ == 'Dual_GFGCN':
+            self.arch.alpha = self.arch.alpha.to(device)
+
         # Save powers of S
         N = S.shape[0]
         S_pows = torch.Tensor(torch.empty(K-1, N, N)).to(device)
@@ -118,16 +117,34 @@ class GF_NodeClassModel(NodeClassModel):
         self.S = self.S.to(device)
 
     def init_optimizers(self, optim, lr, wd):
-        if self.arch.bias:
-            opt_W = optim([layer.W for layer in self.arch.convs] + 
-                          [layer.b for layer in self.arch.convs],
-                          lr=lr, weight_decay=wd)
+        if type(self.arch).__name__ == 'Dual_GFGCN':
+            W_params = [layer.W for layer in self.arch.arch.convs]
+            W_params += [layer.W for layer in self.arch.arch_t.convs]
+
+            if self.arch.bias:
+                W_params += [layer.b for layer in self.arch.arch.convs]
+                W_params += [layer.b for layer in self.arch.arch_t.convs]
+
+            h_params = [layer.h for layer in self.arch.arch.convs]
+            h_params += [layer.h for layer in self.arch.arch_t.convs]
+
+            if self.arch.alpha.requires_grad:
+                h_params += [self.arch.alpha]
+
+            opt_W = optim(W_params, lr=lr, weight_decay=wd)
+            opt_h = optim(h_params, lr=lr, weight_decay=wd)
+
         else:
-            opt_W = optim([layer.W for layer in self.arch.convs],
-                          lr=lr, weight_decay=wd)
-            
-        opt_h = optim([layer.h for layer in self.arch.convs],
-                                      lr=lr, weight_decay=wd)
+            if self.arch.bias:
+                opt_W = optim([layer.W for layer in self.arch.convs] + 
+                            [layer.b for layer in self.arch.convs],
+                            lr=lr, weight_decay=wd)
+            else:
+                opt_W = optim([layer.W for layer in self.arch.convs],
+                            lr=lr, weight_decay=wd)
+                
+            opt_h = optim([layer.h for layer in self.arch.convs],
+                                        lr=lr, weight_decay=wd)
         
         return opt_W, opt_h
 
@@ -160,6 +177,10 @@ class GF_NodeClassModel(NodeClassModel):
 
             if clamp:
                 self.arch.clamp_h()
+
+            if type(self.arch).__name__ == 'Dual_GFGCN':
+                self.arch.alpha.data = self.arch.alpha.clamp(0, 1)
+                # self.arch.alpha = self.arch.alpha.clamp(0, 1)
 
             losses_train[i], losses_val[i], losses_test[i], \
                 accs_train[i], accs_val[i], accs_test[i] = self.get_eval_metrics(X, labels)

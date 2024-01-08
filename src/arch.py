@@ -40,7 +40,7 @@ class GCNN(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
         self.n_layers = n_layers
         self.bias = bias
-        self.convs = nn.ModuleList()            
+        self.convs = nn.ModuleList()
 
         self.convs.append(diff_layer(in_dim, hid_dim, bias))
         if n_layers > 1:
@@ -124,19 +124,30 @@ class GFGCN_noh_Layer(nn.Module):
 class GFGCN(nn.Module):
     def __init__(self, in_dim, hid_dim, out_dim, n_layers, K, bias=True,
                  act=nn.ReLU(), last_act=nn.Identity(), dropout=0,
-                 diff_layer=GFGCNLayer, init_h0=1):
+                 diff_layer=GFGCNLayer, init_h0=1, batch_norm=False):
         super().__init__()
         self.act = act
         self.last_act =  last_act
         self.dropout = nn.Dropout(p=dropout)
         self.n_layers = n_layers
         self.bias = bias
+        
         self.convs = nn.ModuleList()
 
+        self.batch_norm = batch_norm
+        if self.batch_norm:
+            self.bn_layers = nn.ModuleList()
+
         self.convs.append(diff_layer(in_dim, hid_dim, K, bias, init_h0))
+        
         if n_layers > 1:
+            if self.batch_norm:
+                self.bn_layers.append(nn.BatchNorm1d(hid_dim))
+
             for _ in range(n_layers - 2):
                 self.convs.append(diff_layer(hid_dim, hid_dim, K, bias, init_h0))
+                if self.batch_norm:
+                    self.bn_layers.append(nn.BatchNorm1d(hid_dim))
             self.convs.append(diff_layer(hid_dim, out_dim, K, bias, init_h0))
 
     def clamp_h(self):
@@ -147,12 +158,45 @@ class GFGCN(nn.Module):
     def forward(self, S, X):
         for i in range(self.n_layers - 1):
             X = self.act(self.convs[i](X, S))
+            if self.batch_norm:
+                X = self.bn_layers[i](X)
             X = self.dropout(X)
         X = self.convs[-1](X, S)
         return self.last_act(X)
 
-    #########################################################################
 
+class Dual_GFGCN(nn.Module):
+    """
+    This modules is composed of two different architectures (2 GFCNN). One for the GSO S, and
+    the other for its transpose S.T. 
+    """
+    def __init__(self, in_dim, hid_dim, out_dim, n_layers, K, alpha=.5, bias=True,
+                 act=nn.ReLU(), last_act=nn.Identity(), dropout=0,
+                 diff_layer=GFGCNLayer, init_h0=1, batch_norm=False):
+        super().__init__()
+
+        # GNN for S
+        self.arch = GFGCN(in_dim, hid_dim, out_dim, n_layers, K, bias, act,
+                          last_act, dropout, diff_layer, init_h0, batch_norm)
+
+        # GNN for S.T
+        self.arch_t = GFGCN(in_dim, hid_dim, out_dim, n_layers, K, bias, act,
+                            last_act, dropout, diff_layer, init_h0, batch_norm)
+
+        if alpha is None:
+            self.alpha = nn.Parameter(torch.Tensor([0.5]))
+        else:
+            self.alpha = torch.Tensor([alpha])
+        
+        self.bias = bias
+
+    def forward(self, S, X):
+        y1 = self.arch(S, X)
+        y2 = self.arch_t(S.T, X)
+        return self.alpha*y1 + (1 - self.alpha)*y2
+
+
+#########################################################################
 
 class GFGCN_SpowsLayer(GFGCNLayer):
     def forward(self, X, S_pows, norm, dev='cpu'):

@@ -12,7 +12,7 @@ class MLP(nn.Module):
         self.last_nonlin = last_act
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, h):
+    def forward(self, h, GSO=None):
         h = self.layer1(h)
         h = self.nonlin(h)
         h = self.dropout(h)

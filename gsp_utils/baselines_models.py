@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from copy import deepcopy
-from src.arch import GFGCN_Spows
+from src.arch import GFGCN_Spows, NV_GFGCN
 
 class NodeClassModel:
     def __init__(self, arch, S, masks, loss=torch.nn.CrossEntropyLoss(reduction='sum'),
@@ -107,13 +107,16 @@ class GF_NodeClassModel(NodeClassModel):
             self.arch.alpha = self.arch.alpha.to(device)
 
         # Save powers of S
-        N = S.shape[0]
-        S_pows = torch.Tensor(torch.empty(K-1, N, N)).to(device)
-        S_pows[0,:,:] = S
-        for k in range(1,K-1):
-            S_pows[k,:,:] = S @ S_pows[k-1,:,:]
+        if isinstance(arch, GFGCN_Spows) or isinstance(arch, NV_GFGCN):
+            N = S.shape[0]
+            S_pows = torch.Tensor(torch.empty(K-1, N, N)).to(device)
+            S_pows[0,:,:] = S
+            for k in range(1,K-1):
+                S_pows[k,:,:] = S @ S_pows[k-1,:,:]
+            self.S = S_pows
+        else:
+            self.S = S
         
-        self.S = S_pows if isinstance(arch, GFGCN_Spows) else S
         self.S = self.S.to(device)
 
     def init_optimizers(self, optim, lr, wd):

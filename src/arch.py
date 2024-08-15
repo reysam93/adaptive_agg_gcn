@@ -198,13 +198,91 @@ class Dual_GFGCN(nn.Module):
 
 #########################################################################
 
+
+####################       GNN - NodeVarian GF       ####################  
+class NV_GFGCNLayer(nn.Module):
+    def __init__(self, in_dim, out_dim, K, N, f_type='both', groups=None, bias=True):
+        super().__init__()
+        self.K = K
+        self.in_dim = in_dim
+        self.out_dim = out_dim
+        self.b = None
+        self.f_type = f_type
+
+        self.h = nn.Parameter(torch.ones(self.K, N))
+
+        self.W = nn.Parameter(torch.empty((self.in_dim, self.out_dim)))
+        torch.nn.init.kaiming_uniform_(self.W.data)
+
+        if bias:
+            self.b = nn.Parameter(torch.empty(self.out_dim))
+            torch.nn.init.constant_(self.b.data, 0.)
+
+    def forward(self, X, S_pows):
+        assert self.K-1 == S_pows.shape[0]
+
+        H = self.h[0] * torch.eye(X.shape[0]).to(self.h.device)
+        for k in range(0, self.K-1):
+            if self.f_type == 'left':
+                # Perform operation diag(h[k]) @ S^k
+                H += self.h[k+1,:,None] * S_pows[k]
+            elif self.f_type == 'right':
+                # Perform operation S^k @ diag(h[k])
+                H += S_pows[k] * self.h[k+1]
+            else:
+                # Perform operation diag(h[k]) @ S^k @ diag(h[k])
+                H += self.h[k+1,:,None] * S_pows[k] * self.h[k+1]
+
+        if self.b is not None:
+            return H @ (X @ self.W) + self.b[None,:]
+        else:
+            return H @ (X @ self.W)
+
+
+class NV_GFGCN(nn.Module):
+    def __init__(self, in_dim, hid_dim, out_dim, n_layers, K, N, f_type='both',
+                 groups=None, bias=True, act=nn.ReLU(), last_act=nn.Identity(),
+                 dropout=0):
+        super().__init__() 
+        self.act = act
+        self.last_act =  last_act
+        self.dropout = nn.Dropout(p=dropout)
+        self.n_layers = n_layers
+        self.bias = bias
+
+        self.convs = self._create_conv_layers(in_dim, hid_dim, out_dim, n_layers, 
+                                              K, N, f_type, groups, bias)
+
+    def _create_conv_layers(self, in_dim, hid_dim, out_dim, n_layers,
+                            K, N, f_type, groups, bias) -> nn.ModuleList:
+        convs = nn.ModuleList()
+        
+        if n_layers > 1:
+            convs.append(NV_GFGCNLayer(in_dim, hid_dim, K, N, f_type, groups, bias))
+            for _ in range(n_layers - 2):
+                convs.append(NV_GFGCNLayer(hid_dim, hid_dim, K, N, f_type, groups, bias))
+            convs.append(NV_GFGCNLayer(hid_dim, out_dim, K, N, f_type, groups, bias))
+        else:
+            convs.append(NV_GFGCNLayer(in_dim, out_dim, K, N, f_type, groups, bias))
+
+        return convs
+
+
+    def forward(self, S_pows, X):
+        for i in range(self.n_layers - 1):
+            X = self.act(self.convs[i](X, S_pows))
+            X = self.dropout(X)
+        X = self.convs[-1](X, S_pows)
+        return self.last_act(X)
+#########################################################################
+
+
 class GFGCN_SpowsLayer(GFGCNLayer):
     def forward(self, X, S_pows, norm, dev='cpu'):
         assert self.K-1 == S_pows.shape[0]
 
-        H = self.h[0] * torch.eye(X.shape[0]).to(dev)
-        for k in range(0, self.K-1):
-            H += self.h[k+1] * S_pows[k,:,:]
+        H0 = self.h[0] * torch.eye(X.shape[0]).to(dev)
+        H = (self.h[1:, None, None] * S_pows).sum(axis=0) + H0
 
         if norm:
             deg = H.sum(1)

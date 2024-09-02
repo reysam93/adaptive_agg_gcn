@@ -33,15 +33,19 @@ def obtain_filter_coefs(S, H, K, return_h_bar=False, use_H_vals=False):
     else:
         return h
 
-def normalize_gso(S, norm_type):
+def normalize_gso(S, norm_type, add_id=True):
     """
     Perform different tpyes of normalizations of the GSO.
     """
     if norm_type == 'eigen':
         return S/la.norm(S, 2)
     
+    if add_id:
+        S += np.eye(S.shape[0])
+    
     deg_vec = S.sum(1)
-    D_inv = np.diag(np.where(np.isclose(deg_vec, 0), 0, 1/deg_vec))
+    deg_vec_no0 = np.where(np.isclose(deg_vec, 0), 1, deg_vec)
+    D_inv = np.diag(1/deg_vec_no0)
     
     if norm_type == 'right':
         return S @ D_inv

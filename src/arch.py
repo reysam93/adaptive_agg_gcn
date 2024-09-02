@@ -17,8 +17,8 @@ class GCNNLayer(nn.Module):
             self.b = nn.Parameter(torch.empty(self.out_dim))
             torch.nn.init.constant_(self.b.data, 0.)
 
-    def forward(self, X, S): 
-        X_out = X  @ self.W
+    def forward(self, X, S):
+        X_out = X @ self.W
         if S.is_sparse:
             X_out = torch.sparse.mm(S, X_out)
         else:

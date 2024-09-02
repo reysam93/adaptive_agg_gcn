@@ -2,9 +2,9 @@ from dgl.nn import GATConv, GraphConv
 import torch.nn as nn
 
 
-class MLP(nn.Module):
+class MLP_2L(nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim, dropout=0., bias=True,
-                 act=nn.ReLU(), last_act=nn.Identity(),):
+                 act=nn.ReLU(), last_act=nn.Identity()):
         super(MLP, self).__init__()
         self.layer1 = nn.Linear(in_dim, hidden_dim, bias=bias)
         self.layer2 = nn.Linear(hidden_dim, out_dim, bias=bias)
@@ -18,6 +18,39 @@ class MLP(nn.Module):
         h = self.dropout(h)
         h = self.layer2(h)
         return self.last_nonlin(h)
+    
+
+class MLP(nn.Module):
+    def __init__(self, in_dim, hid_dim, out_dim, n_layers, dropout=0., act=nn.ReLU(), last_act=nn.Identity()):
+        super().__init__()
+        self.in_dim = in_dim
+        self.hid_dim = hid_dim
+        self.out_dim = out_dim
+        self.n_layers = n_layers
+        self.nonlin_f = act
+
+        self.layers = nn.ModuleList()
+        self.dropout_layers = nn.ModuleList()
+
+        if n_layers > 1:
+            self.layers.append(nn.Linear(in_dim, hid_dim))
+            self.dropout_layers.append(nn.Dropout(dropout))
+            for i in range(n_layers - 2):
+                self.layers.append(nn.Linear(hid_dim, hid_dim))
+                self.dropout_layers.append(nn.Dropout(dropout))
+            self.layers.append(nn.Linear(hid_dim, out_dim))
+        else:
+            self.layers.append(nn.Linear(in_dim, out_dim))
+
+    def forward(self, x):
+
+        for i in range(self.n_layers - 1):
+            x = self.layers[i](x)
+            x = self.dropout_layers[i](x)
+            x = self.nonlin_f(x)
+        x = self.layers[-1](x)
+
+        return x
 
 
 class GAT(nn.Module):

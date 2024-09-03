@@ -34,7 +34,7 @@ class NodeClassModel:
 
         return losses_train, losses_val, losses_test, accs_train,accs_val, accs_test
 
-    def train(self, X, labels, n_epochs, lr, wd, eval_freq=20, optim=torch.optim.Adam,
+    def train(self, X, labels, epochs, lr, wd, eval_freq=20, optim=torch.optim.Adam,
               patience=100, verb=False):
         best_val_loss = 1000
         # best_val_acc = 0
@@ -42,10 +42,10 @@ class NodeClassModel:
         best_weights = deepcopy(self.arch.state_dict())
         opt = optim(self.arch.parameters(), lr=lr, weight_decay=wd)
 
-        losses_train, losses_val, losses_test = [np.zeros(n_epochs) for _ in range(3)]
-        accs_train, accs_val, accs_test = [np.zeros(n_epochs) for _ in range(3)]
+        losses_train, losses_val, losses_test = [np.zeros(epochs) for _ in range(3)]
+        accs_train, accs_val, accs_test = [np.zeros(epochs) for _ in range(3)]
 
-        for i in range(n_epochs):
+        for i in range(epochs):
             self.arch.train()
             opt.zero_grad()
 
@@ -61,7 +61,7 @@ class NodeClassModel:
                 accs_train[i], accs_val[i], accs_test[i] = self.get_eval_metrics(X, labels)
     
             if (i == 0 or (i+1) % eval_freq == 0) and verb:
-                print(f"Epoch {i+1}/{n_epochs} - Loss Train: {losses_train[i]:.3f} - Acc Train: {accs_train[i]:.3f} - Acc Val: {accs_val[i]:.3f} - Acc Test: {accs_test[i]:.3f}", flush=True)
+                print(f"Epoch {i+1}/{epochs} - Loss Train: {losses_train[i]:.3f} - Acc Train: {accs_train[i]:.3f} - Acc Val: {accs_val[i]:.3f} - Acc Test: {accs_test[i]:.3f}", flush=True)
             
             if losses_val[i] < best_val_loss:
                 best_val_loss = losses_val[i]
@@ -159,7 +159,7 @@ class GF_NodeClassModel(NodeClassModel):
             loss.backward()
             optim.step()
 
-    def train(self, X, labels, n_epochs, lr, wd, eval_freq=20, optim=torch.optim.Adam, 
+    def train(self, X, labels, epochs, lr, wd, eval_freq=20, optim=torch.optim.Adam, 
               epochs_h=1, epochs_W=1, clamp=False, patience=100, verb=False):
         best_val_loss = 1000
         # best_val_acc = 0
@@ -167,9 +167,9 @@ class GF_NodeClassModel(NodeClassModel):
         best_weights = deepcopy(self.arch.state_dict())
         opt_W, opt_h = self.init_optimizers(optim, lr, wd)
 
-        losses_train, losses_val, losses_test = [np.zeros(n_epochs) for _ in range(3)]
-        accs_train, accs_val, accs_test = [np.zeros(n_epochs) for _ in range(3)]
-        for i in range(n_epochs):
+        losses_train, losses_val, losses_test = [np.zeros(epochs) for _ in range(3)]
+        accs_train, accs_val, accs_test = [np.zeros(epochs) for _ in range(3)]
+        for i in range(epochs):
             self.arch.train()
 
             # Step W
@@ -189,7 +189,7 @@ class GF_NodeClassModel(NodeClassModel):
                 accs_train[i], accs_val[i], accs_test[i] = self.get_eval_metrics(X, labels)
 
             if (i == 0 or (i+1) % eval_freq == 0) and verb:
-                print(f"Epoch {i+1}/{n_epochs} - Loss Train: {losses_train[i]:.3f} - Acc Train: {accs_train[i]:.3f} - Acc Val: {accs_val[i]:.3f} - Acc Test: {accs_test[i]:.3f}", flush=True)
+                print(f"Epoch {i+1}/{epochs} - Loss Train: {losses_train[i]:.3f} - Acc Train: {accs_train[i]:.3f} - Acc Val: {accs_val[i]:.3f} - Acc Test: {accs_test[i]:.3f}", flush=True)
 
             if losses_val[i] < best_val_loss:
                 best_val_loss = losses_val[i]

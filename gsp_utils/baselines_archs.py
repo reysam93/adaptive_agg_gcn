@@ -173,20 +173,20 @@ class GAT(nn.Module):
     """
     Graph Attention Network Class
     """
-    def __init__(self, in_dim, hidden_dim, out_dim, num_heads, gat_params,
-                 act=nn.ELU(), last_act=nn.Identity(), n_layers=None):
+    def __init__(self, in_dim, hid_dim, out_dim, num_heads, gat_params,
+                 act=nn.ELU(), l_act=nn.Identity(), n_layers=None):
         super(GAT, self).__init__()
 
         if n_layers is not None:
             print('WARNING: GAT is implemeted with a fixed number of layers. The argument is ignored.')
 
-        self.layer1 = GATConv(in_dim, hidden_dim, num_heads, **gat_params)
-        # Be aware that the input dimension is hidden_dim*num_heads since
+        self.layer1 = GATConv(in_dim, hid_dim, num_heads, **gat_params)
+        # Be aware that the input dimension is hid_dim*num_heads since
         # multiple head outputs are concatenated together. Also, only
         # one attention head in the output layer.
-        self.layer2 = GATConv(hidden_dim * num_heads, out_dim, 1, **gat_params)
+        self.layer2 = GATConv(hid_dim * num_heads, out_dim, 1, **gat_params)
         self.act = act
-        self.last_act = last_act
+        self.l_act = l_act
 
     def forward(self, graph, h):
         h = self.layer1(graph, h)
@@ -194,7 +194,7 @@ class GAT(nn.Module):
         h = h.flatten(1)
         h = self.act(h)
         h = self.layer2(graph, h)
-        return self.last_act(h.squeeze())
+        return self.l_act(h.squeeze())
     
 
 ##########   DEPRECATED   ##########
@@ -202,21 +202,21 @@ class GCNN_2L(nn.Module):
     """
     2-layer Graph Convolutional Neural Network Class as in Kipf
     """
-    def __init__(self, in_dim, hidden_dim, out_dim, act=nn.ELU(), last_act=nn.Identity(),
+    def __init__(self, in_dim, hid_dim, out_dim, act=nn.ELU(), l_act=nn.Identity(),
                  norm='both', bias=True, dropout=0):
         super(GCNN_2L, self).__init__()
-        self.layer1 = GraphConv(in_dim, hidden_dim, bias=bias, norm=norm)
-        self.layer2 = GraphConv(hidden_dim, out_dim, bias=bias, norm=norm)
+        self.layer1 = GraphConv(in_dim, hid_dim, bias=bias, norm=norm)
+        self.layer2 = GraphConv(hid_dim, out_dim, bias=bias, norm=norm)
         self.dropout = nn.Dropout(p=dropout)
         self.act = act
-        self.last_act = last_act
+        self.l_act = l_act
 
     def forward(self, graph, h):
         h = self.layer1(graph, h)
         h = self.act(h)
         h = self.dropout(h)
         h = self.layer2(graph, h)
-        return self.last_act(h)
+        return self.l_act(h)
 ####################################
 
 # class FixedGFGNN(nn.Module):

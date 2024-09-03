@@ -32,11 +32,11 @@ class GCNNLayer(nn.Module):
 
 class GCNN(nn.Module):
     def __init__(self, in_dim, hid_dim, out_dim, n_layers, bias=True,
-                 act=nn.ReLU(), last_act=nn.Identity(), dropout=0,
+                 act=nn.ReLU(), l_act=nn.Identity(), dropout=0,
                  diff_layer=GCNNLayer):
         super().__init__()
         self.act = act
-        self.last_act =  last_act
+        self.l_act =  l_act
         self.dropout = nn.Dropout(p=dropout)
         self.n_layers = n_layers
         self.bias = bias
@@ -53,14 +53,14 @@ class GCNN(nn.Module):
             X = self.act(self.convs[i](X, S))
             X = self.dropout(X)
         X = self.convs[-1](X, S)
-        return self.last_act(X)
+        return self.l_act(X)
 
 #########################################################################
 
 
 ####################       GNN - LEARNABLE GF       ####################
 class GFGCNLayer(nn.Module):
-    def __init__(self, in_dim, out_dim, K, bias, init_h0=1):
+    def __init__(self, in_dim, out_dim, K, bias, h0=1):
         super().__init__()
         self.K = K
         self.in_dim = in_dim
@@ -69,7 +69,7 @@ class GFGCNLayer(nn.Module):
 
         self.h = nn.Parameter(torch.empty((self.K)))
         torch.nn.init.constant_(self.h.data, 1.)
-        self.h.data[0] = init_h0
+        self.h.data[0] = h0
 
         self.W = nn.Parameter(torch.empty((self.in_dim, self.out_dim)))
         torch.nn.init.kaiming_uniform_(self.W.data)
@@ -93,7 +93,7 @@ class GFGCNLayer(nn.Module):
         
 
 class GFGCN_noh_Layer(nn.Module):
-    def __init__(self, in_dim, out_dim, K, bias, init_h0=1):
+    def __init__(self, in_dim, out_dim, K, bias, h0=1):
         super().__init__()
         self.K = K
         self.in_dim = in_dim
@@ -102,7 +102,7 @@ class GFGCN_noh_Layer(nn.Module):
         
         self.W = nn.Parameter(torch.empty((K, self.in_dim, self.out_dim)))
         torch.nn.init.kaiming_uniform_(self.W.data)
-        self.W.data[0] *= init_h0
+        self.W.data[0] *= h0
 
         if bias:
             self.b = nn.Parameter(torch.empty(self.out_dim))
@@ -123,11 +123,11 @@ class GFGCN_noh_Layer(nn.Module):
 
 class GFGCN(nn.Module):
     def __init__(self, in_dim, hid_dim, out_dim, n_layers, K, bias=True,
-                 act=nn.ReLU(), last_act=nn.Identity(), dropout=0,
-                 diff_layer=GFGCNLayer, init_h0=1, batch_norm=False):
+                 act=nn.ReLU(), l_act=nn.Identity(), dropout=0,
+                 diff_layer=GFGCNLayer, h0=1, batch_norm=False):
         super().__init__()
         self.act = act
-        self.last_act =  last_act
+        self.l_act =  l_act
         self.dropout = nn.Dropout(p=dropout)
         self.n_layers = n_layers
         self.bias = bias
@@ -138,17 +138,17 @@ class GFGCN(nn.Module):
         if self.batch_norm:
             self.bn_layers = nn.ModuleList()
 
-        self.convs.append(diff_layer(in_dim, hid_dim, K, bias, init_h0))
+        self.convs.append(diff_layer(in_dim, hid_dim, K, bias, h0))
         
         if n_layers > 1:
             if self.batch_norm:
                 self.bn_layers.append(nn.BatchNorm1d(hid_dim))
 
             for _ in range(n_layers - 2):
-                self.convs.append(diff_layer(hid_dim, hid_dim, K, bias, init_h0))
+                self.convs.append(diff_layer(hid_dim, hid_dim, K, bias, h0))
                 if self.batch_norm:
                     self.bn_layers.append(nn.BatchNorm1d(hid_dim))
-            self.convs.append(diff_layer(hid_dim, out_dim, K, bias, init_h0))
+            self.convs.append(diff_layer(hid_dim, out_dim, K, bias, h0))
 
     def clamp_h(self):
         with torch.no_grad():
@@ -162,7 +162,7 @@ class GFGCN(nn.Module):
                 X = self.bn_layers[i](X)
             X = self.dropout(X)
         X = self.convs[-1](X, S)
-        return self.last_act(X)
+        return self.l_act(X)
 
 
 class Dual_GFGCN(nn.Module):
@@ -171,17 +171,17 @@ class Dual_GFGCN(nn.Module):
     the other for its transpose S.T. 
     """
     def __init__(self, in_dim, hid_dim, out_dim, n_layers, K, alpha=.5, bias=True,
-                 act=nn.ReLU(), last_act=nn.Identity(), dropout=0,
-                 diff_layer=GFGCNLayer, init_h0=1, batch_norm=False):
+                 act=nn.ReLU(), l_act=nn.Identity(), dropout=0,
+                 diff_layer=GFGCNLayer, h0=1, batch_norm=False):
         super().__init__()
 
         # GNN for S
         self.arch = GFGCN(in_dim, hid_dim, out_dim, n_layers, K, bias, act,
-                          last_act, dropout, diff_layer, init_h0, batch_norm)
+                          l_act, dropout, diff_layer, h0, batch_norm)
 
         # GNN for S.T
         self.arch_t = GFGCN(in_dim, hid_dim, out_dim, n_layers, K, bias, act,
-                            last_act, dropout, diff_layer, init_h0, batch_norm)
+                            l_act, dropout, diff_layer, h0, batch_norm)
 
         if alpha is None:
             self.alpha = nn.Parameter(torch.Tensor([0.5]))
@@ -241,11 +241,11 @@ class NV_GFGCNLayer(nn.Module):
 
 class NV_GFGCN(nn.Module):
     def __init__(self, in_dim, hid_dim, out_dim, n_layers, K, N, f_type='both',
-                 groups=None, bias=True, act=nn.ReLU(), last_act=nn.Identity(),
+                 groups=None, bias=True, act=nn.ReLU(), l_act=nn.Identity(),
                  dropout=0):
         super().__init__() 
         self.act = act
-        self.last_act =  last_act
+        self.l_act =  l_act
         self.dropout = nn.Dropout(p=dropout)
         self.n_layers = n_layers
         self.bias = bias
@@ -273,7 +273,7 @@ class NV_GFGCN(nn.Module):
             X = self.act(self.convs[i](X, S_pows))
             X = self.dropout(X)
         X = self.convs[-1](X, S_pows)
-        return self.last_act(X)
+        return self.l_act(X)
 #########################################################################
 
 
@@ -298,8 +298,8 @@ class GFGCN_SpowsLayer(GFGCNLayer):
 
 class GFGCN_Spows(GFGCN):
     def __init__(self, in_dim, hid_dim, out_dim, n_layers, K, norm=True, bias=True,
-                 act=nn.ReLU(), last_act=nn.Identity(), dropout=0, dev='cpu'):
-        super().__init__(in_dim, hid_dim, out_dim, n_layers, K, bias, act, last_act, dropout,
+                 act=nn.ReLU(), l_act=nn.Identity(), dropout=0, dev='cpu'):
+        super().__init__(in_dim, hid_dim, out_dim, n_layers, K, bias, act, l_act, dropout,
                          diff_layer=GFGCN_SpowsLayer) 
         self.norm = norm
         self.dev = dev
@@ -309,5 +309,5 @@ class GFGCN_Spows(GFGCN):
             X = self.act(self.convs[i](X, S_pows, self.norm, dev=self.dev))
             X = self.dropout(X)
         X = self.convs[-1](X, S_pows, self.norm, dev=self.dev)
-        return self.last_act(X)
+        return self.l_act(X)
 

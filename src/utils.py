@@ -1,7 +1,8 @@
 import dgl
 import torch
 import numpy as np
-
+from pandas import DataFrame
+from IPython.display import display
 
 # DATA RELATED
 def get_data_dgl(dataset_name, verb=False, dev='cpu', idx=0):
@@ -52,3 +53,50 @@ def normalize_feats(X):
     r_inv[torch.isinf(r_inv)] = 0.
     r_mat_inv = torch.diag(r_inv)
     return r_mat_inv @ X
+
+def summary_table(accs, datasets, exps):
+    mean_accs = accs.mean(axis=2)
+    cols_name = []
+    for dataset_name in datasets:
+        graph = getattr(dgl.data, dataset_name)(verbose=False)[0]
+        edge_hom = dgl.edge_homophily(graph, graph.ndata['label'])
+        cols_name.append(f'{dataset_name} ({edge_hom:.2f})')
+
+    index_name = [exp['leg'] for exp in exps]
+
+    return DataFrame(mean_accs, columns=cols_name, index=index_name)
+
+def display_data(exps_leg, datasets, err, time, metric_label='Err'):
+    for i, dataset in enumerate(datasets):
+        err_i = err[:,i,:]
+        time_i = time[:,i]
+
+        data = {
+            'Exp': exps_leg,
+            f'Mean {metric_label}': err_i.mean(axis=1),
+            f'Median {metric_label}': np.median(err_i, axis=1),
+            'Mean Std': err_i.std(axis=1),
+            'time': time_i.mean(axis=1)
+        }
+        df = DataFrame(data)
+        display(df)
+
+def display_all_data(exps_leg, datasets, err, agg='mean'):
+    assert len(exps_leg) == err.shape[0]
+    data = {'Exp': exps_leg}
+    for i, dataset in enumerate(datasets):
+        graph = getattr(dgl.data, dataset)(verbose=False)[0]
+        edge_hom = dgl.edge_homophily(graph, graph.ndata['label'])        
+        name = dataset.replace('Dataset', '')
+        key = f'{name} ({edge_hom:.2f})'
+
+        agg_err_i = getattr(np, agg)(err[:,i,:], axis=1)
+        std_err_i = np.std(err[:,i,:], axis=1)
+
+        data[key] = []
+        for j in range(len(exps_leg)):
+            data[key].append( f'{agg_err_i[j]:.4} \u00B1 {std_err_i[j]:.4}' )
+
+    df = DataFrame(data)
+    display(df)
+

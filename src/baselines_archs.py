@@ -25,32 +25,6 @@ class BaselineArch(nn.Module):
         return self.l_act(X_out)
 
 
-# class MyGCNNLayer(nn.Module):
-#     def __init__(self, in_dim, out_dim, bias):
-#         super(MyGCNNLayer, self).__init__()
-#         self.in_d = in_dim
-#         self.out_d = out_dim
-#         self._init_parameters(bias)
-
-#     def _init_parameters(self, bias):
-#         self.W = nn.Parameter(torch.empty((self.in_d, self.out_d)))
-#         nn.init.xavier_uniform_(self.W)
-
-#         if bias:
-#             self.b = nn.Parameter(torch.empty(self.out_d))
-#             nn.init.constant_(self.b.data, 0.)
-#         else:
-#             self.b = None
-
-#     def forward(self, A, X):
-#         X_out = A @ (X @ self.W)
-
-#         if self.b is not None:
-#             return X_out + self.b[None,:]
-#         else:
-#             return X_out
-
-
 class GCNN(BaselineArch):
     def __init__(self, in_dim, hid_dim, out_dim, n_layers=2, act=nn.ReLU(), l_act=nn.Identity(),
                  bias=True, dropout=0, norm='both'):
@@ -129,8 +103,7 @@ class GIN(BaselineArch):
         return convs
 
     def forward(self, graph, h):
-        # h = h.transpose(0,1)
-        return super().forward(graph, h) #.transpose(1, 0)
+        return super().forward(graph, h)
 
 
 class MLP(nn.Module):
@@ -195,34 +168,3 @@ class GAT(nn.Module):
         h = self.act(h)
         h = self.layer2(graph, h)
         return self.l_act(h.squeeze())
-    
-
-##########   DEPRECATED   ##########
-class GCNN_2L(nn.Module):
-    """
-    2-layer Graph Convolutional Neural Network Class as in Kipf
-    """
-    def __init__(self, in_dim, hid_dim, out_dim, act=nn.ELU(), l_act=nn.Identity(),
-                 norm='both', bias=True, dropout=0):
-        super(GCNN_2L, self).__init__()
-        self.layer1 = GraphConv(in_dim, hid_dim, bias=bias, norm=norm)
-        self.layer2 = GraphConv(hid_dim, out_dim, bias=bias, norm=norm)
-        self.dropout = nn.Dropout(p=dropout)
-        self.act = act
-        self.l_act = l_act
-
-    def forward(self, graph, h):
-        h = self.layer1(graph, h)
-        h = self.act(h)
-        h = self.dropout(h)
-        h = self.layer2(graph, h)
-        return self.l_act(h)
-####################################
-
-# class FixedGFGNN(nn.Module):
-#     """
-#     Class for a Greapg Neural Network that replaces the classical normalized A by some given graph
-#     fitler
-#     """
-#     def __init__(self, *args, **kwargs) -> None:
-#         super().__init__(*args, **kwargs)

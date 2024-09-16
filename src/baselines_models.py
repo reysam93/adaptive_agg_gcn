@@ -37,7 +37,6 @@ class NodeClassModel:
     def train(self, X, labels, epochs, lr, wd, eval_freq=20, optim=torch.optim.Adam,
               patience=100, verb=False):
         best_val_loss = 1000
-        # best_val_acc = 0
         cont_stop = 0
         best_weights = deepcopy(self.arch.state_dict())
         opt = optim(self.arch.parameters(), lr=lr, weight_decay=wd)
@@ -162,7 +161,6 @@ class GF_NodeClassModel(NodeClassModel):
     def train(self, X, labels, epochs, lr, wd, eval_freq=20, optim=torch.optim.Adam, 
               epochs_h=1, epochs_W=1, clamp=False, patience=100, verb=False):
         best_val_loss = 1000
-        # best_val_acc = 0
         cont_stop = 0
         best_weights = deepcopy(self.arch.state_dict())
         opt_W, opt_h = self.init_optimizers(optim, lr, wd)
@@ -183,7 +181,6 @@ class GF_NodeClassModel(NodeClassModel):
 
             if type(self.arch).__name__ == 'Dual_GFGCN':
                 self.arch.alpha.data = self.arch.alpha.clamp(0, 1)
-                # self.arch.alpha = self.arch.alpha.clamp(0, 1)
 
             losses_train[i], losses_val[i], losses_test[i], \
                 accs_train[i], accs_val[i], accs_test[i] = self.get_eval_metrics(X, labels)
